@@ -49,14 +49,7 @@ def load_data():
         st.error(f"Error al cargar datos: {str(e)}")
         return pd.DataFrame()
 
-df = load_data()
 
-# Filtrar datos para hoy y ayer
-hoy = datetime.datetime.now().strftime('%m/%d/%Y')
-ayer = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%m/%d/%Y')
-
-df_hoy = df[df['Fecha DAV'].dt.strftime('%m/%d/%Y') == hoy]
-df_ayer = df[df['Fecha DAV'].dt.strftime('%m/%d/%Y') == ayer]
 
 # Función para generar la tabla y el mapa de calor
 def generate_hover_text(volumen_data, tabla):
@@ -138,6 +131,13 @@ st.title('Gestió Mostos')
 section = st.sidebar.selectbox('Selecciona una secció', ['Gestió de Mostos', 'Previsiones'])
 
 if section == 'Gestió de Mostos':
+    if st.button("Actualizar Datos"):
+        load_data.clear()
+    df = load_data()
+    hoy = datetime.datetime.now().strftime('%m/%d/%Y')
+    ayer = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%m/%d/%Y')
+    df_hoy = df[df['Fecha DAV'].dt.strftime('%m/%d/%Y') == hoy]
+    df_ayer = df[df['Fecha DAV'].dt.strftime('%m/%d/%Y') == ayer]
     # Crear y mostrar tabla y mapa de calor para hoy
     with st.spinner('Cargando datos...'):
         tabla_hoy, fig_heatmap_hoy = crear_tabla_y_mapa(df_hoy, "Dia Actual")
