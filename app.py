@@ -39,7 +39,11 @@ def load_data():
             return pd.DataFrame()
         df = pd.DataFrame(data[1:], columns=data[0])
         df.columns = df.columns.str.strip()
-        df['Fecha DAV'] = pd.to_datetime(df['Fecha DAV'], format='%m/%d/%Y', errors='coerce')
+        # Intentar múltiples formatos de fecha
+        df['Fecha DAV'] = pd.to_datetime(df['Fecha DAV'], format='%d/%m/%Y', errors='coerce')
+        # Si falla, intentar formato americano
+        if df['Fecha DAV'].isna().all():
+            df['Fecha DAV'] = pd.to_datetime(df['Fecha DAV'], format='%m/%d/%Y', errors='coerce')
         df['Timestamp'] = pd.to_datetime(df['Timestamp'], format='%m/%d/%Y %H:%M:%S', errors='coerce')
         df['Litros'] = pd.to_numeric(df['Litros'], errors='coerce')
         df = df.dropna(subset=['Litros', 'Fecha DAV', 'Timestamp'])  # Validación básica
@@ -83,8 +87,8 @@ def crear_tabla_y_mapa(df, titulo):
         ).reset_index()
 
         tabla = tabla.rename(columns={
-            'Expedicion': 'Destí',
-            'Envio': 'Expedició',
+            'Expedicion': 'Expedició',
+            'Envio': 'Destí',
             'Volum': 'Volum (L)',
             'MarcaTemporal': 'Marca temporal',
             'DataDAV': 'Data DAV'
@@ -134,24 +138,55 @@ if section == 'Gestió de Mostos':
     if st.button("Actualizar Datos"):
         load_data.clear()
     df = load_data()
-    hoy = datetime.datetime.now().strftime('%m/%d/%Y')
-    ayer = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%m/%d/%Y')
-    df_hoy = df[df['Fecha DAV'].dt.strftime('%m/%d/%Y') == hoy]
-    df_ayer = df[df['Fecha DAV'].dt.strftime('%m/%d/%Y') == ayer]
+    
+    if not df.empty:
+        # Obtener las dos fechas más recientes disponibles en los datos
+        # Obtener fecha actual (hoy) y fecha anterior (ayer) en formato europeo
+        fecha_hoy = datetime.datetime.now().strftime('%d/%m/%Y')
+        fecha_ayer = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%d/%m/%Y')
+        
+        # Verificar si hay datos disponibles
+        fechas_disponibles = df['Fecha DAV'].dt.strftime('%d/%m/%Y').unique()
+        
+        # Solo usar fechas exactas: hoy y ayer
+        fecha_reciente = fecha_hoy
+        fecha_anterior = fecha_ayer
+        
+        df_hoy = df[df['Fecha DAV'].dt.strftime('%d/%m/%Y') == fecha_reciente]
+        df_ayer = df[df['Fecha DAV'].dt.strftime('%d/%m/%Y') == fecha_anterior]
+        
+        # Mostrar información sobre las fechas
+        st.info(f"📅 Mostrando datos de: **{fecha_reciente}** (hoy) y **{fecha_anterior}** (ayer)")
+    else:
+        st.error("No se encontraron datos válidos")
+        df_hoy = pd.DataFrame()
+        df_ayer = pd.DataFrame()
     # Crear y mostrar tabla y mapa de calor para hoy
     with st.spinner('Cargando datos...'):
-        tabla_hoy, fig_heatmap_hoy = crear_tabla_y_mapa(df_hoy, "Dia Actual")
-    st.subheader('Tabla Dia Actual')
-    st.dataframe(tabla_hoy)
-    st.subheader('Mapa de Calor Dia Actual')
-    st.plotly_chart(fig_heatmap_hoy)
+        tabla_hoy, fig_heatmap_hoy = crear_tabla_y_mapa(df_hoy, f"Hoy ({fecha_reciente})")
+    st.subheader(f'Tabla - Hoy ({fecha_reciente})')
+    if not df_hoy.empty:
+        st.dataframe(tabla_hoy)
+    else:
+        st.info("No hay datos disponibles para hoy.")
+    st.subheader(f'Mapa de Calor - Hoy ({fecha_reciente})')
+    if not df_hoy.empty:
+        st.plotly_chart(fig_heatmap_hoy)
+    else:
+        st.info("No hay datos disponibles para mostrar el mapa de calor de hoy.")
 
     with st.spinner('Cargando datos...'):
-        tabla_ayer, fig_heatmap_ayer = crear_tabla_y_mapa(df_ayer, "Dia Anterior")
-    st.subheader('Tabla Dia Anterior')
-    st.dataframe(tabla_ayer)
-    st.subheader('Mapa de Calor Dia Anterior')
-    st.plotly_chart(fig_heatmap_ayer)
+        tabla_ayer, fig_heatmap_ayer = crear_tabla_y_mapa(df_ayer, f"Ayer ({fecha_anterior})")
+    st.subheader(f'Tabla - Ayer ({fecha_anterior})')
+    if not df_ayer.empty:
+        st.dataframe(tabla_ayer)
+    else:
+        st.info("No hay datos disponibles para ayer.")
+    st.subheader(f'Mapa de Calor - Ayer ({fecha_anterior})')
+    if not df_ayer.empty:
+        st.plotly_chart(fig_heatmap_ayer)
+    else:
+        st.info("No hay datos disponibles para mostrar el mapa de calor de ayer.")
 
 elif section == 'Previsiones':
     st.subheader('Previsiones - Càrrega d\'arxiu Excel')
